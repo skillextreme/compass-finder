@@ -23,11 +23,10 @@ export default async (req: Request, context: Context): Promise<Response> => {
         method: req.method,
         path: url.pathname.replace(/^\/api/, ""),
         body,
-        adminKey: req.headers.get("x-admin-key"),
         ip: context.ip || "unknown",
       },
       blobKV(),
-      { adminKey: process.env.ADMIN_KEY },
+      {},
     );
     return send(reply.status, reply.body);
   } catch (err) {

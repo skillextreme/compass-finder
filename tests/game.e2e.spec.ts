@@ -493,14 +493,10 @@ test("both leaderboards on the results screen: order, own row, start distance", 
   await expect(quick.page.locator("#found-still")).toHaveText("Everyone who started has found him!");
 });
 
-test("master board: wrong key is refused; the spot stays put when Jacob walks; moving it needs Find me again", async ({ game }) => {
-  const wrong = await game.master(undefined, "not-the-key");
-  await expect(wrong.page.locator("#key-error")).toContainText("That key didn't match");
-  await wrong.page.fill("#key", "dev-key");
-  await wrong.page.getByRole("button", { name: "Open the board" }).click();
+test("master board: opens with no key and nothing on the guest pages links to it; the spot stays put when Jacob walks", async ({ game }) => {
+  const wrong = await game.master();
   await expect(wrong.page.locator("#find-me")).toBeVisible();
-  // The key is kept out of the address bar.
-  expect(wrong.page.url()).not.toContain("key=");
+  await expect(wrong.page.locator("#key")).toHaveCount(0);
 
   const jacob = wrong;
   await jacob.page.click("#find-me");
@@ -572,15 +568,26 @@ test("a name the server can't use sends the guest back to the start with a hint"
   await expect.poll(async () => (await game.api<{ rows: { name: string }[] }>("GET", "/master", undefined, true)).rows.map((r) => r.name)).toEqual(["Asha 🌼"]);
 });
 
-test("the master board keeps the key filled in when the signal drops at opening", async ({ game }) => {
+test("guests are never shown a way to the master board", async ({ game }) => {
+  await game.publish();
+  const guest = await game.guest({ bearing: 200, metres: 30 });
+  const noLink = async () => {
+    expect(await guest.page.locator('a[href*="master"]').count()).toBe(0);
+    expect((await guest.page.content()).toLowerCase()).not.toContain("master");
+  };
+  await guest.expectScreen("start");
+  await noLink();
+  await guest.start("Asha");
+  await guest.page.click("#info");
+  await noLink();
+  await guest.page.click(".sheet__close");
+  await guest.arrive(200);
+  await noLink();
+});
+
+test("the master board rides out a dropped signal", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  await expect(jacob.page.locator("#spot-set")).toBeVisible();
-  await jacob.context.setOffline(true);
-  await jacob.page.reload().catch(() => {});
-  await jacob.context.setOffline(false);
-  // Served from the test server again; the saved key opens the board without retyping.
-  await jacob.page.goto("/master.html");
   await expect(jacob.page.locator("#spot-set")).toBeVisible();
   // While open, a dropped signal shows a notice and the last update stays on screen.
   await jacob.context.setOffline(true);

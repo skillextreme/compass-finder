@@ -65,8 +65,7 @@ test("update never loses a concurrent change", async () => {
 test("the whole game holds together on the real storage wrapper under concurrency", async () => {
   const blobs = fakeBlobs();
   const kv = kvFromStore(blobs);
-  const KEY = "k";
-  const call = (method: string, path: string, body: unknown, admin = false, ip = "a") => route({ method, path, body, adminKey: admin ? KEY : null, ip }, kv, { adminKey: KEY });
+  const call = (method: string, path: string, body: unknown, _master = false, ip = "a") => route({ method, path, body, ip }, kv, {});
   await call("POST", "/master/target", { lat: 12.9763, lng: 77.5929, accuracy: 5 }, true);
   const who = Array.from({ length: 12 }, (_, i) => ({ id: `${String(i).padStart(8, "0")}-4444-4444-8444-444444444444`, token: "c".repeat(64) }));
   const starts = await Promise.all(who.map((w, i) => call("POST", "/start", { ...w, name: `G${i}`, ageMs: 0, lat: 12.979, lng: 77.5929 }, false, `ip${i}`)));

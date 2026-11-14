@@ -1,7 +1,7 @@
 /** Thin client for the /api routes. The compass itself keeps working on the phone when these fail. */
 import type { AttemptStatus, Boards, MasterState, PingReply, PublicState, Result } from "./config.ts";
 
-export type ApiCode = "network" | "unknown_attempt" | "round_changed" | "not_published" | "rate_limited" | "too_far" | "weak_reading" | "unauthorized" | "admin_key_not_set" | "invalid" | "server";
+export type ApiCode = "network" | "unknown_attempt" | "round_changed" | "not_published" | "rate_limited" | "too_far" | "weak_reading" | "invalid" | "server";
 
 export class ApiError extends Error {
   constructor(
@@ -12,9 +12,9 @@ export class ApiError extends Error {
   }
 }
 
-const KNOWN: ApiCode[] = ["unknown_attempt", "round_changed", "not_published", "rate_limited", "too_far", "weak_reading", "unauthorized", "admin_key_not_set"];
+const KNOWN: ApiCode[] = ["unknown_attempt", "round_changed", "not_published", "rate_limited", "too_far", "weak_reading"];
 
-async function call<T>(method: "GET" | "POST", path: string, body?: unknown, adminKey?: string): Promise<T> {
+async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), 10_000);
   let res: Response;
@@ -23,7 +23,7 @@ async function call<T>(method: "GET" | "POST", path: string, body?: unknown, adm
       method,
       signal: ctrl.signal,
       cache: "no-store",
-      headers: { accept: "application/json", ...(body !== undefined ? { "content-type": "application/json" } : {}), ...(adminKey ? { "x-admin-key": adminKey } : {}) },
+      headers: { accept: "application/json", ...(body !== undefined ? { "content-type": "application/json" } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -64,7 +64,7 @@ export const postPing = (who: Identity, at: { lat: number; lng: number } | null)
 export const postFinish = (who: Identity, body: { lat: number; lng: number; accuracy: number; ageMs: number }) => call<StatusReply>("POST", "/finish", { ...who, ...body });
 export const postRequest = (who: Identity) => call<StatusReply>("POST", "/request", who);
 
-export const getMaster = (key: string) => call<MasterState>("GET", "/master", undefined, key);
-export const postTarget = (key: string, at: { lat: number; lng: number; accuracy: number }) => call<PublicState>("POST", "/master/target", at, key);
-export const postApprove = (key: string, id: string) => call<{ result: Result; already: boolean }>("POST", "/master/approve", { id }, key);
-export const postReset = (key: string, keepTarget: boolean) => call<PublicState>("POST", "/master/reset", { keepTarget }, key);
+export const getMaster = () => call<MasterState>("GET", "/master");
+export const postTarget = (at: { lat: number; lng: number; accuracy: number }) => call<PublicState>("POST", "/master/target", at);
+export const postApprove = (id: string) => call<{ result: Result; already: boolean }>("POST", "/master/approve", { id });
+export const postReset = (keepTarget: boolean) => call<PublicState>("POST", "/master/reset", { keepTarget });

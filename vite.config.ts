@@ -5,7 +5,7 @@ import { BOARD_CACHE_MS, memoryKV, route, type KV } from "./netlify/lib/core.ts"
 /**
  * Serves /api locally with the same rules Netlify runs, backed by memory instead of Blobs.
  * `npm run dev` and the Playwright tests use it, so no Netlify login is needed to try the game.
- * The x-ns header gives each test its own empty game. The master key here is "dev-key".
+ * The x-ns header gives each test its own empty game.
  */
 function devApi(): Plugin {
   const stores = new Map<string, KV>();
@@ -31,18 +31,16 @@ function devApi(): Plugin {
         }
         const ns = String(req.headers["x-ns"] ?? "default");
         if (!stores.has(ns)) stores.set(ns, memoryKV());
-        const adminKey = req.headers["x-admin-key"];
         try {
           const reply = await route(
             {
               method: req.method ?? "GET",
               path: new URL(req.url!, "http://localhost").pathname.replace(/^\/api/, ""),
               body,
-              adminKey: typeof adminKey === "string" ? adminKey : null,
               ip: ns,
             },
             stores.get(ns)!,
-            { adminKey: process.env.ADMIN_KEY ?? "dev-key" },
+            {},
           );
           send(reply.status, reply.body);
         } catch (err) {

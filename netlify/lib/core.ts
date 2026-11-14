@@ -44,12 +44,10 @@ export interface ApiRequest {
   /** Path after /api, for example "/ping". */
   path: string;
   body: unknown;
-  adminKey: string | null;
   ip: string;
 }
 
 export interface Env {
-  adminKey: string | undefined;
   now?: number;
 }
 
@@ -95,11 +93,6 @@ function sameHash(a: string, b: string): boolean {
   const x = Buffer.from(a, "hex");
   const y = Buffer.from(b, "hex");
   return x.length === y.length && x.length > 0 && timingSafeEqual(x, y);
-}
-
-export function adminKeyMatches(given: string | null, expected: string | undefined): boolean {
-  if (!given || !expected) return false;
-  return sameHash(sha256(given), sha256(expected));
 }
 
 function cleanName(v: unknown): string | null {
@@ -401,7 +394,11 @@ async function board(kv: KV, now: number): Promise<Reply> {
   return ok({ round: boardCache!.round, serverNow: now, boards: boardCache!.boards });
 }
 
-/* ---------- Master calls (need the admin key) ---------- */
+/*
+ * ---------- Master calls ----------
+ * These are open on purpose: there is no key. Jacob's board is simply a page nobody else is told about
+ * (nothing on the guest page links to it). Anyone who learned the address could use it.
+ */
 
 async function master(kv: KV, now: number): Promise<Reply> {
   const s = await snapshot(kv);
@@ -506,8 +503,6 @@ export async function route(req: ApiRequest, kv: KV, env: Env): Promise<Reply> {
       return attemptStatus(req.body, kv, now);
   }
   if (req.path.startsWith("/master")) {
-    if (!env.adminKey) return fail(503, "admin_key_not_set");
-    if (!adminKeyMatches(req.adminKey, env.adminKey)) return fail(401, "unauthorized");
     switch (at) {
       case "GET /master":
         return master(kv, now);

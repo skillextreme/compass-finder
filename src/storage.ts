@@ -6,7 +6,6 @@ import type { Result } from "./config.ts";
 
 const ATTEMPT_KEY = "cf.attempt.v1";
 const NAME_KEY = "cf.name.v1";
-const MASTER_KEY = "cf.master.v1";
 
 export interface LocalAttempt {
   round: number;
@@ -82,9 +81,6 @@ export function clearAttempt(): void {
 
 export const loadName = () => read(NAME_KEY) ?? "";
 export const storeName = (name: string) => write(NAME_KEY, name);
-
-export const loadMasterKey = () => read(MASTER_KEY);
-export const storeMasterKey = (key: string | null) => write(MASTER_KEY, key);
 
 function randomHex(bytes: number): string {
   const a = new Uint8Array(bytes);

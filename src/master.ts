@@ -1,18 +1,16 @@
 /**
- * Jacob's private board. Needs the ADMIN_KEY set in Netlify (typed once, then remembered on this phone).
+ * Jacob's board. It has no password: it lives at /master and nothing on the guest page links to it.
  * "Find me" marks the spot every compass points to. The list shows who is waiting for a confirmation,
  * who is looking and who has finished, and lets Jacob approve a finish once he has seen the guest.
  */
-import { ApiError, getMaster, postApprove, postReset, postTarget } from "./api.ts";
+import { getMaster, postApprove, postReset, postTarget } from "./api.ts";
 import { C, cloud, pinColor } from "./art.ts";
-import { GAME, POLL, type LatLng, type MasterRow, type MasterState } from "./config.ts";
+import { POLL, type LatLng, type MasterRow, type MasterState } from "./config.ts";
 import { averageReadings, bearingDeg, distanceM, formatDistance, formatDuration, type Reading } from "./geo.ts";
 import { watchLocation, type Watcher } from "./location.ts";
-import { loadMasterKey, storeMasterKey } from "./storage.ts";
 import { $, boardsView, closeSheet, el, formatClock, openSheet, toast } from "./ui.ts";
 
 const app = $("app");
-let key = "";
 let state: MasterState | null = null;
 let offset = 0;
 let pollTimer = 0;
@@ -26,49 +24,21 @@ function sky(): HTMLElement {
   return el("div", { class: "sky", "aria-hidden": "true" }, el("span", { class: "sky__cloud sky__cloud--a", html: `<svg viewBox="-70 -50 140 85">${cloud()}</svg>` }));
 }
 
-/* ---------- Key ---------- */
+/* ---------- Opening ---------- */
 
-function showKey(message: string, prefill = ""): void {
-  window.clearTimeout(pollTimer);
-  const input = el("input", { class: "field__input", id: "key", type: "password", autocomplete: "current-password", placeholder: "Host key" });
-  input.value = prefill;
-  const form = el(
-    "form",
-    { class: "start__form" },
-    el("label", { class: "field__label", for: "key" }, "Host key"),
-    input,
-    el("p", { class: "field__error", role: "alert", id: "key-error" }, message),
-    el("button", { class: "btn btn--primary btn--big", type: "submit" }, "Open the board"),
-  );
-  app.dataset.screen = "key";
-  app.replaceChildren(sky(), el("section", { class: "card" }, el("h1", {}, "Master board"), el("p", {}, `Only ${GAME.host} gets in here. Enter the ADMIN_KEY you set in Netlify.`), form));
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    if (input.value.trim()) void open(input.value.trim());
-  });
-}
-
-async function open(candidate: string): Promise<void> {
+/** There is no key: the board opens for whoever knows this address. Retries by itself if there's no signal. */
+async function open(): Promise<void> {
   try {
-    const s = await getMaster(candidate);
-    key = candidate;
-    storeMasterKey(key);
-    // Keep the key out of the address bar, so a screenshot or shared link can't leak it.
-    if (window.location.search) window.history.replaceState(null, "", window.location.pathname);
-    accept(s);
+    accept(await getMaster());
     buildBoard();
     schedule();
-  } catch (e) {
-    const code = e instanceof ApiError ? e.code : "network";
-    if (code === "unauthorized") {
-      storeMasterKey(null);
-      showKey("That key didn't match. Check the ADMIN_KEY you set in Netlify.");
-    } else if (code === "admin_key_not_set") {
-      showKey("ADMIN_KEY isn't set in Netlify yet. Add it under Site configuration → Environment variables, then redeploy.");
-    } else {
-      // Keep the key filled in, so a blip in the signal is one tap to get past.
-      showKey("Couldn't reach the server. Check your connection and try again.", candidate);
-    }
+  } catch {
+    app.dataset.screen = "offline";
+    const retry = el("button", { class: "btn btn--primary", type: "button" }, "Try again");
+    app.replaceChildren(sky(), el("section", { class: "card card--center" }, el("h1", {}, "Master board"), el("p", { id: "open-error" }, "Couldn't reach the server. Trying again…"), retry));
+    retry.addEventListener("click", () => void open());
+    window.clearTimeout(pollTimer);
+    pollTimer = window.setTimeout(() => void open(), 4000);
   }
 }
 
@@ -97,17 +67,16 @@ function schedule(): void {
 
 async function refresh(): Promise<void> {
   try {
-    accept(await getMaster(key));
+    accept(await getMaster());
     $("net")?.toggleAttribute("hidden", true);
     draw();
-  } catch (e) {
-    if (e instanceof ApiError && e.code === "unauthorized") return showKey("That key no longer works. Enter the current one.");
+  } catch {
     $("net")?.toggleAttribute("hidden", false);
   }
   schedule();
 }
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && key) void refresh();
+  if (document.visibilityState === "visible" && app.dataset.screen === "board") void refresh();
 });
 
 /* ---------- Board ---------- */
@@ -352,7 +321,7 @@ function drawPlayers(): void {
 async function approve(r: MasterRow, button: HTMLButtonElement | null): Promise<void> {
   if (button) button.disabled = true;
   try {
-    const res = await postApprove(key, r.id);
+    const res = await postApprove(r.id);
     toast(res.already ? `${r.name} had already finished` : `${r.name}'s finish is approved`);
     closeSheet();
     await refresh();
@@ -423,7 +392,7 @@ function openFindMe(moving: boolean): void {
     mark.disabled = true;
     void (async () => {
       try {
-        await postTarget(key, avg);
+        await postTarget(avg);
         toast(moving ? "Spot moved. Compasses are turning." : "Spot marked. Compasses are live!");
         s.close();
         await refresh();
@@ -444,20 +413,13 @@ function openMenu(): void {
   const move = el("button", { class: "btn btn--big", type: "button", id: "menu-move" }, state?.target ? "Move my spot" : "Find me");
   const share = el("button", { class: "btn btn--big", type: "button", id: "menu-share" }, "Copy the guest link");
   const fresh = el("button", { class: "btn btn--big", type: "button", id: "menu-reset" }, "Start a fresh round…");
-  const forget = el("button", { class: "btn btn--link", type: "button" }, "Forget the key on this phone");
-  s.body.append(el("div", { class: "menu" }, move, share, fresh, forget));
+  s.body.append(el("div", { class: "menu" }, move, share, fresh));
   move.addEventListener("click", () => openFindMe(!!state?.target));
   share.addEventListener("click", () => {
     void navigator.clipboard?.writeText(link).then(
       () => toast("Guest link copied"),
       () => toast(link, 8000),
     );
-  });
-  forget.addEventListener("click", () => {
-    storeMasterKey(null);
-    key = "";
-    s.close();
-    showKey("");
   });
   fresh.addEventListener("click", () => {
     const c = openSheet("Start a fresh round?");
@@ -466,7 +428,7 @@ function openMenu(): void {
     c.body.append(el("p", {}, "Everyone's attempts and both leaderboards are wiped. Use this after a practice run. Guests go back to the start screen."), el("div", { class: "menu" }, keep, all));
     const go = (keepTarget: boolean) => async () => {
       try {
-        await postReset(key, keepTarget);
+        await postReset(keepTarget);
         toast("Fresh round started");
         c.close();
         await refresh();
@@ -481,7 +443,4 @@ function openMenu(): void {
 
 /* ---------- Go ---------- */
 
-const fromUrl = new URLSearchParams(window.location.search).get("key");
-const saved = fromUrl ?? loadMasterKey();
-if (saved) void open(saved);
-else showKey("");
+void open();

@@ -3,7 +3,6 @@ import { bearingDeg, destination, distanceM, norm360, turn } from "../src/geo.ts
 
 /** A spot in Cubbon Park that plays Jacob's hiding place in every test. */
 export const SPOT = { lat: 12.9763, lng: 77.5929 };
-export const ADMIN = "dev-key";
 
 export interface Place {
   /** Compass bearing from the spot to this place. */
@@ -99,10 +98,10 @@ export class Game {
   ) {}
 
   /** Calls the API directly, for quick set-up. */
-  async api<T = Record<string, unknown>>(method: "GET" | "POST", path: string, body?: unknown, admin = false): Promise<T> {
+  async api<T = Record<string, unknown>>(method: "GET" | "POST", path: string, body?: unknown, _master = false): Promise<T> {
     const res = await this.request.fetch(`/api${path}`, {
       method,
-      headers: { "x-ns": this.ns, ...(admin ? { "x-admin-key": ADMIN } : {}) },
+      headers: { "x-ns": this.ns },
       data: body,
     });
     return (await res.json()) as T;
@@ -134,10 +133,10 @@ export class Game {
   }
 
   /** Jacob's phone, standing at the spot, with the master board open. */
-  async master(place: Place = { bearing: 0, metres: 0, accuracy: 5 }, key = ADMIN): Promise<Guest> {
+  async master(place: Place = { bearing: 0, metres: 0, accuracy: 5 }): Promise<Guest> {
     const context = await this.context(place);
     const page = await context.newPage();
-    await page.goto(`/master.html?key=${key}`);
+    await page.goto("/master.html");
     return new Guest(page, context);
   }
 }

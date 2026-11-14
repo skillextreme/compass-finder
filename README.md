@@ -7,19 +7,18 @@ It is built for phones only. On a computer the page asks to be opened on a phone
 | Page | Who | Address |
 |---|---|---|
 | The game | Guests | `/` |
-| Master board | Jacob | `/master` (asks for the host key once, then remembers it on that phone) |
+| Master board | Jacob | `/master` (no password; nothing links to it, so only someone who knows the address finds it) |
 
 ## Deploy on Netlify
 
 1. In Netlify, choose **Add new site → Import an existing project**, pick this GitHub repo and the `main` branch. Build settings are read from [`netlify.toml`](netlify.toml).
-2. Under **Site configuration → Environment variables**, add `ADMIN_KEY` with a long secret phrase. This is the host key for the master board.
-3. Trigger a deploy so the function picks up the key.
+2. Deploy. There are no environment variables to set.
 
 Results are stored in Netlify Blobs, which is built in. There is no database to set up.
 
 ## On the day
 
-1. Open `/master` on your phone and enter the host key.
+1. Open `/master` on your phone.
 2. Stand where you'll wait and tap **Find me**. Hold still for a few seconds, then **Mark this spot**. Every compass points there from now on. The spot does not move when you walk around.
 3. Share the plain site link. Guests enter a name and tap **Start the hunt**.
 4. The **Players** tab lists people waiting for you to confirm (top, yellow), people looking, and finishers. **Map** shows where searchers are around your spot. **Results** has both leaderboards.
@@ -39,6 +38,8 @@ All of these live in [`src/config.ts`](src/config.ts). Change a number and push.
 - **Flowers:** all closed at 600 m or more (about the park edge), all open at 10 m, on a scale that keeps changing through the last 100 m.
 - **Friends:** while someone is looking, their phone shares its position (rounded to about 10 m) every few seconds. Other searchers see it as a small arrow. It stops when they find Jacob, and they drop off after a minute of silence.
 - **No signal:** the compass, distance and flowers run on the phone. A start or finish made with no signal is sent when the signal returns and keeps its real time.
+
+The master board has no password. It is kept private only by not being linked from anywhere: anyone who learned or guessed the `/master` address could move the spot, approve finishes or clear the round. That is accepted for a game among friends; don't share that address or a screenshot showing it.
 
 A guest's phone needs the marked spot to work out the direction, so someone who opens the browser's developer tools could read the coordinates. That is accepted for this game.
 
@@ -70,7 +71,7 @@ npm run dev
 npm test
 ```
 
-`npm run dev` serves the game with a local stand-in for the API (same rules, stored in memory), so no Netlify login is needed. The local host key is `dev-key`. On a computer, add `?anyway=1` to skip the "open on your phone" card, and use the browser's sensor tools to set a location.
+`npm run dev` serves the game with a local stand-in for the API (same rules, stored in memory), so no Netlify login is needed. On a computer, add `?anyway=1` to skip the "open on your phone" card, and use the browser's sensor tools to set a location.
 
 `npm test` builds the site and runs:
 

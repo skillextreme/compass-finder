@@ -5,7 +5,6 @@ import { destination } from "../src/geo.ts";
 
 BOARD_CACHE_MS.value = 0;
 
-const KEY = "the-host-key";
 const SPOT = { lat: 12.9763, lng: 77.5929 };
 const T0 = 1_800_000_000_000;
 const id = (n: number) => `${String(n).repeat(8)}-1111-4111-8111-111111111111`;
@@ -15,10 +14,10 @@ const near = (metres: number, bearing = 120) => destination(SPOT, bearing, metre
 
 type Store = KV & { data: Map<string, unknown> };
 
-const call = (kv: Store, method: string, path: string, body: unknown, now: number, adminKey: string | null = null, ip = "1.1.1.1"): Promise<Reply> =>
-  route({ method, path, body, adminKey, ip }, kv, { adminKey: KEY, now });
+const call = (kv: Store, method: string, path: string, body: unknown, now: number, _unused: null = null, ip = "1.1.1.1"): Promise<Reply> =>
+  route({ method, path, body, ip }, kv, { now });
 const guest = (kv: Store, path: string, body: unknown, now: number) => call(kv, "POST", path, body, now);
-const host = (kv: Store, method: string, path: string, body: unknown, now: number) => call(kv, method, path, body, now, KEY);
+const host = (kv: Store, method: string, path: string, body: unknown, now: number) => call(kv, method, path, body, now);
 
 async function published(): Promise<Store> {
   const kv = memoryKV();
@@ -281,18 +280,11 @@ test("positions are stored at most every couple of seconds per guest", async () 
   expect((await seenByBen(T0 + LIMITS.pingMinMs + 20)).lat).toBeCloseTo(near(300).lat, 4);
 });
 
-test("master routes need the key; nothing private leaks to guests", async () => {
+test("the master board has no key; guests' private tokens still never leak", async () => {
   const kv = await published();
   await started(kv, 1, "Asha", T0);
-  for (const key of [null, "", "wrong", KEY + "x"]) {
-    expect((await call(kv, "GET", "/master", null, T0, key)).status).toBe(401);
-    expect((await call(kv, "POST", "/master/target", SPOT, T0, key)).status).toBe(401);
-    expect((await call(kv, "POST", "/master/approve", { id: id(1) }, T0, key)).status).toBe(401);
-    expect((await call(kv, "POST", "/master/reset", {}, T0, key)).status).toBe(401);
-  }
-  const noKey = await route({ method: "GET", path: "/master", body: null, adminKey: "anything", ip: "x" }, kv, { adminKey: undefined, now: T0 });
-  expect(noKey.status).toBe(503);
-  expect(count(kv, "/finishes/")).toBe(0);
+  // Open by design: the board is a page nobody else is told about.
+  expect((await call(kv, "GET", "/master", null, T0)).status).toBe(200);
 
   // Only a hash of the token is stored, and no reply carries it.
   const stored = JSON.stringify([...kv.data.values()]);
