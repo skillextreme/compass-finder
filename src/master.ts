@@ -28,9 +28,10 @@ function sky(): HTMLElement {
 
 /* ---------- Key ---------- */
 
-function showKey(message: string): void {
+function showKey(message: string, prefill = ""): void {
   window.clearTimeout(pollTimer);
   const input = el("input", { class: "field__input", id: "key", type: "password", autocomplete: "current-password", placeholder: "Host key" });
+  input.value = prefill;
   const form = el(
     "form",
     { class: "start__form" },
@@ -65,7 +66,8 @@ async function open(candidate: string): Promise<void> {
     } else if (code === "admin_key_not_set") {
       showKey("ADMIN_KEY isn't set in Netlify yet. Add it under Site configuration → Environment variables, then redeploy.");
     } else {
-      showKey("Couldn't reach the server. Check your connection and try again.");
+      // Keep the key filled in, so a blip in the signal is one tap to get past.
+      showKey("Couldn't reach the server. Check your connection and try again.", candidate);
     }
   }
 }

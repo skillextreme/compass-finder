@@ -275,6 +275,8 @@ function showStart(): void {
     "aria-describedby": "name-error",
   });
   input.value = loadName();
+  // Remember a half-typed name, so it survives if this screen refreshes when Jacob moves his spot.
+  input.addEventListener("input", () => storeName(input.value));
   const error = el("p", { class: "field__error", id: "name-error", role: "alert" });
   const button = el("button", { class: "btn btn--primary btn--big", type: "submit", id: "start" }, "Start the hunt");
   const form = el(
@@ -459,11 +461,14 @@ async function sync(): Promise<void> {
   syncing = true;
   window.clearTimeout(syncTimer);
   let retryMs = 0;
+  let starting = false;
   try {
     const a = attempt;
     if (!a.synced) {
+      starting = true;
       const r = await postStart(a, { name: a.name, round: a.round, ageMs: Date.now() - a.startedLocal, ...(a.startAt ?? {}) });
       a.synced = true;
+      starting = false;
       storeAttempt(a);
       applyStatus(r.status, r.result);
     }
@@ -477,6 +482,15 @@ async function sync(): Promise<void> {
     if (code === "round_changed" || code === "not_published" || code === "unknown_attempt") {
       syncing = false;
       return resetToFreshRound();
+    }
+    if (starting && code === "invalid") {
+      // The server wouldn't take the name (symbols only, say). Start again rather than hunt unseen.
+      syncing = false;
+      clearAttempt();
+      attempt = null;
+      storeName("");
+      toast("That name didn't work. Try letters or numbers.");
+      return void boot();
     }
     if (code === "too_far" || code === "weak_reading" || code === "invalid") {
       // The server disagrees (Jacob may have moved the spot). Back to the hunt.

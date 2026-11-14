@@ -559,3 +559,33 @@ test("a fresh round after a practice run sends everyone back to the start with e
   await looking.expectScreen("looking");
   await expect(jacob.page.locator(".rows > li")).toHaveCount(1);
 });
+
+test("a name the server can't use sends the guest back to the start with a hint", async ({ game }) => {
+  await game.publish();
+  const guest = await game.guest({ bearing: 200, metres: 300 });
+  await guest.page.fill("#name", "<>");
+  await guest.page.click("#start");
+  await guest.expectScreen("start", 20_000);
+  await expect(guest.page.locator("#toast")).toHaveText("That name didn't work. Try letters or numbers.");
+  expect((await game.api<{ rows: unknown[] }>("GET", "/master", undefined, true)).rows).toHaveLength(0);
+  await guest.start("Asha 🌼");
+  await expect.poll(async () => (await game.api<{ rows: { name: string }[] }>("GET", "/master", undefined, true)).rows.map((r) => r.name)).toEqual(["Asha 🌼"]);
+});
+
+test("the master board keeps the key filled in when the signal drops at opening", async ({ game }) => {
+  await game.publish();
+  const jacob = await game.master();
+  await expect(jacob.page.locator("#spot-set")).toBeVisible();
+  await jacob.context.setOffline(true);
+  await jacob.page.reload().catch(() => {});
+  await jacob.context.setOffline(false);
+  // Served from the test server again; the saved key opens the board without retyping.
+  await jacob.page.goto("/master.html");
+  await expect(jacob.page.locator("#spot-set")).toBeVisible();
+  // While open, a dropped signal shows a notice and the last update stays on screen.
+  await jacob.context.setOffline(true);
+  await expect(jacob.page.locator("#net")).toBeVisible({ timeout: 15_000 });
+  await expect(jacob.page.locator("#spot-set")).toBeVisible();
+  await jacob.context.setOffline(false);
+  await expect(jacob.page.locator("#net")).toBeHidden({ timeout: 15_000 });
+});
