@@ -66,13 +66,14 @@ export function bloomSteps(distance: number): number {
 
 /** Short words that go with the distance. */
 export function warmth(distance: number): string {
-  if (distance <= FINISH.radiusM) return "You're here!";
-  if (distance <= 25) return "Look up! Jacob is right here";
-  if (distance <= 60) return "So close";
-  if (distance <= 120) return "Hot";
-  if (distance <= 220) return "Getting warmer";
-  if (distance <= 400) return "Lukewarm";
-  if (distance <= 700) return "Chilly";
+  const beyond = distance - FINISH.radiusM;
+  if (beyond <= 0) return "You're here!";
+  if (beyond <= 30) return "Look up! Jacob is very close";
+  if (beyond <= 80) return "So close";
+  if (beyond <= 160) return "Hot";
+  if (beyond <= 280) return "Getting warmer";
+  if (beyond <= 450) return "Lukewarm";
+  if (beyond <= 700) return "Chilly";
   return "Far, far away";
 }
 

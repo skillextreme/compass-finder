@@ -64,30 +64,29 @@ const METRO_WALK: Place[] = [
   { bearing: 215, metres: 330 }, // the detour: the path bends away
   { bearing: 205, metres: 240 },
   { bearing: 200, metres: 150 },
-  { bearing: 200, metres: 80 },
-  { bearing: 200, metres: 40 },
-  { bearing: 200, metres: 18 },
-  { bearing: 200, metres: 12 },
+  { bearing: 200, metres: 95 },
+  { bearing: 200, metres: 70 },
+  { bearing: 200, metres: 56 },
 ];
 /** A second approach from the opposite park edge. */
 const EAST_WALK: Place[] = [
   { bearing: 80, metres: 640 },
   { bearing: 70, metres: 380 },
   { bearing: 64, metres: 170 },
+  { bearing: 60, metres: 85 },
+  { bearing: 60, metres: 61 },
   { bearing: 60, metres: 55 },
-  { bearing: 60, metres: 21 },
-  { bearing: 60, metres: 11 },
 ];
 
 for (const [label, walk] of [
   ["from the metro entrance", METRO_WALK],
   ["from the east edge", EAST_WALK],
 ] as const) {
-  test(`walking in ${label}: plane, distance and flowers follow, and it finishes only inside 10 m`, async ({ game }) => {
+  test(`walking in ${label}: plane, distance and flowers follow, and it finishes only inside 50 m`, async ({ game }) => {
     await game.publish();
     const guest = await game.guest(walk[0]);
     await guest.start("Asha");
-    await expect(guest.page.locator("#cue")).toHaveText("Dandelions open as you get closer to Jacob");
+    await expect(guest.page.locator("#cue")).toHaveText("The meadow blooms as you get closer to Jacob");
     let lastSteps = -1;
     for (const [i, place] of walk.entries()) {
       await guest.moveTo(place);
@@ -115,15 +114,17 @@ for (const [label, walk] of [
     await guest.expectScreen("looking");
     // One reading inside isn't enough by itself…
     const last = walk.at(-1)!;
-    await guest.moveTo({ bearing: last.bearing, metres: 7 });
+    await guest.moveTo({ bearing: last.bearing, metres: 45 });
     await guest.page.waitForTimeout(600);
     await guest.expectScreen("looking");
-    await expect(guest.page.locator("#distance")).toHaveText("7 m");
+    await expect(guest.page.locator("#distance")).toHaveText("45 m");
     // …a second one a moment later is.
     await guest.page.waitForTimeout(1800);
-    await guest.moveTo({ bearing: last.bearing, metres: 6 });
+    await guest.moveTo({ bearing: last.bearing, metres: 44 });
     await guest.expectScreen("found");
     await expect(guest.page.getByRole("heading", { level: 1 })).toHaveText("You found Jacob!");
+    await expect(guest.page.locator(".found__won")).toHaveText("You won!");
+    await expect(guest.page.locator("#found-near")).toContainText("within about 50 metres");
     await expect(guest.page.locator("#badge-first")).toHaveText("1st to arrive");
     await expect(guest.page.locator("#badge-fast")).toHaveText("1st fastest");
     await expect(guest.page.locator(".board__row.is-me .board__name")).toHaveText("Asha");
@@ -234,13 +235,13 @@ test("a vague reading shows a weak-signal message and can't finish the hunt", as
 test("Ask Jacob to confirm: request reaches the board, Jacob approves, both screens show the finish", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const guest = await game.guest({ bearing: 140, metres: 60 });
+  const guest = await game.guest({ bearing: 140, metres: 120 });
   await guest.start("Asha");
   const other = await game.guest({ bearing: 20, metres: 250 });
   await other.start("Ben");
-  await guest.moveTo({ bearing: 140, metres: 15 });
+  await guest.moveTo({ bearing: 140, metres: 62 });
   await guest.face(320);
-  await expect(guest.page.locator("#hint")).toHaveText("Look up! Jacob is right here");
+  await expect(guest.page.locator("#hint")).toHaveText("Look up! Jacob is very close");
   await expect(guest.page.locator("#ask")).toHaveText("I'm with Jacob!");
 
   await guest.page.click("#ask");
@@ -280,7 +281,7 @@ test("Ask Jacob to confirm: request reaches the board, Jacob approves, both scre
 test("Jacob can approve straight from a Looking row after a confirmation step", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const guest = await game.guest({ bearing: 140, metres: 30 });
+  const guest = await game.guest({ bearing: 140, metres: 80 });
   await guest.start("Asha");
   const looking = jacob.page.locator(row("Asha"));
   await looking.getByRole("button", { name: "Seen them" }).click();
@@ -298,7 +299,7 @@ test("Jacob can approve straight from a Looking row after a confirmation step", 
 test("a request that can't be sent says so and can be retried", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const guest = await game.guest({ bearing: 140, metres: 14 });
+  const guest = await game.guest({ bearing: 140, metres: 60 });
   await guest.start("Asha");
   await guest.context.setOffline(true);
   await guest.page.click("#ask");
@@ -322,7 +323,7 @@ test("a request that can't be sent says so and can be retried", async ({ game })
 test("the compass finishing while a request is pending closes the request: one result, even if Jacob taps too", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const guest = await game.guest({ bearing: 140, metres: 14 });
+  const guest = await game.guest({ bearing: 140, metres: 60 });
   await guest.start("Asha");
   await guest.page.click("#ask");
   await guest.page.click("#ask-send");
@@ -351,13 +352,13 @@ test("the compass finishing while a request is pending closes the request: one r
 test("no signal at the finish: found on the phone straight away, saved with its real time when back online", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const guest = await game.guest({ bearing: 200, metres: 40 });
+  const guest = await game.guest({ bearing: 200, metres: 90 });
   await guest.start("Asha");
   await guest.context.setOffline(true);
   // The compass keeps working with no connection.
-  await guest.moveTo({ bearing: 200, metres: 25 });
+  await guest.moveTo({ bearing: 200, metres: 70 });
   await guest.face(20);
-  await expect(guest.page.locator("#distance")).toHaveText("25 m");
+  await expect(guest.page.locator("#distance")).toHaveText("70 m");
   await guest.arrive(200);
   await expect(guest.page.locator("#found-saving")).toHaveText("Saving your time… keep this page open");
   const shown = await guest.page.locator("#found-time").textContent();
@@ -420,7 +421,7 @@ test("reloading mid-hunt resumes the same attempt with the timer still running; 
 test("friends who are searching show as tiny arrows in the right directions, and leave when they finish", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const places = { Asha: { bearing: 250, metres: 400 }, Rohan: { bearing: 20, metres: 180 }, Meera: { bearing: 140, metres: 60 } };
+  const places = { Asha: { bearing: 250, metres: 400 }, Rohan: { bearing: 20, metres: 180 }, Meera: { bearing: 140, metres: 90 } };
   const asha = await game.guest(places.Asha);
   const rohan = await game.guest(places.Rohan);
   const meera = await game.guest(places.Meera);
@@ -476,7 +477,7 @@ test("both leaderboards on the results screen: order, own row, start distance", 
   const slow = await game.guest({ bearing: 200, metres: 500 });
   await slow.start("Asha");
   await slow.page.waitForTimeout(4000);
-  const quick = await game.guest({ bearing: 100, metres: 20 });
+  const quick = await game.guest({ bearing: 100, metres: 70 });
   await quick.start("Ben");
   await slow.arrive(200); // arrives first, but took longer
   await quick.arrive(100);
@@ -486,7 +487,7 @@ test("both leaderboards on the results screen: order, own row, start distance", 
   await expect(quick.page.locator(".board__row .board__name")).toHaveText(["Asha", "Ben"]);
   await quick.page.getByRole("tab", { name: "Fastest" }).click();
   await expect(quick.page.locator(".board__row .board__name")).toHaveText(["Ben", "Asha"]);
-  await expect(quick.page.locator(".board__row.is-me")).toContainText("from 20 m away");
+  await expect(quick.page.locator(".board__row.is-me")).toContainText("from 70 m away");
   await expect(quick.page.locator(".board__row").nth(1)).toContainText("from 500 m away");
   await expect(slow.page.locator("#badge-first")).toHaveText("1st to arrive", { timeout: 15_000 });
   await expect(slow.page.locator("#badge-fast")).toHaveText("2nd fastest", { timeout: 15_000 });
@@ -533,7 +534,7 @@ test("master board: opens with no key and nothing on the guest pages links to it
 test("a fresh round after a practice run sends everyone back to the start with empty boards", async ({ game }) => {
   await game.publish();
   const jacob = await game.master();
-  const done = await game.guest({ bearing: 200, metres: 30 });
+  const done = await game.guest({ bearing: 200, metres: 80 });
   await done.start("Asha");
   await done.arrive(200);
   const looking = await game.guest({ bearing: 20, metres: 200 });
@@ -570,7 +571,7 @@ test("a name the server can't use sends the guest back to the start with a hint"
 
 test("guests are never shown a way to the master board", async ({ game }) => {
   await game.publish();
-  const guest = await game.guest({ bearing: 200, metres: 30 });
+  const guest = await game.guest({ bearing: 200, metres: 80 });
   const noLink = async () => {
     expect(await guest.page.locator('a[href*="master"]').count()).toBe(0);
     expect((await guest.page.content()).toLowerCase()).not.toContain("master");
@@ -595,4 +596,42 @@ test("the master board rides out a dropped signal", async ({ game }) => {
   await expect(jacob.page.locator("#spot-set")).toBeVisible();
   await jacob.context.setOffline(false);
   await expect(jacob.page.locator("#net")).toBeHidden({ timeout: 15_000 });
+});
+
+test("a compass that swings about asks the guest to slow down, then carries on once it settles", async ({ game }) => {
+  await game.publish();
+  const guest = await game.guest({ bearing: 180, metres: 300 });
+  await guest.start("Asha");
+  await guest.face(0);
+  await expect(guest.page.locator("#hint")).toHaveText("Getting warmer");
+  // The sensor jumps all over the place for a couple of seconds.
+  for (let i = 0; i < 30; i++) {
+    await guest.page.evaluate((h) => {
+      const e = new Event("deviceorientationabsolute");
+      Object.assign(e, { alpha: (360 - h) % 360, beta: 35, gamma: 0, absolute: true });
+      window.dispatchEvent(e);
+    }, (i * 137) % 360);
+    await guest.page.waitForTimeout(50);
+  }
+  await expect(guest.page.locator("#hint")).toHaveText("Slow down a moment. I'm double-checking your direction.");
+  await expect(guest.page.locator("#toast")).toHaveText("Slow down. Let me double-check you're heading the right way.");
+  await guest.expectScreen("looking");
+  // Held steady again: the notice clears and the plane points at Jacob (due north of here).
+  await guest.face(90, 5500);
+  await expect(guest.page.locator("#hint")).toHaveText("Getting warmer");
+  const { plane } = await guest.compass();
+  expect(Math.abs(turn(plane!, 270))).toBeLessThan(4);
+});
+
+test("walking one way while the compass says another also asks the guest to slow down", async ({ game }) => {
+  await game.publish();
+  const guest = await game.guest({ bearing: 180, metres: 300 });
+  await guest.start("Asha");
+  // The sensor insists the phone faces west, but the guest keeps walking east.
+  for (const b of [178, 176, 174, 172]) {
+    await guest.face(270, 300);
+    await guest.moveTo({ bearing: b, metres: 300 });
+  }
+  await guest.face(270, 1200);
+  await expect(guest.page.locator("#hint")).toHaveText("Slow down a moment. I'm double-checking your direction.");
 });

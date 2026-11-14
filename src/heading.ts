@@ -3,7 +3,7 @@
  * Uses the phone's compass sensor when there is one. If the sensor is missing or blocked,
  * falls back to the direction the guest is walking, worked out from their last few positions.
  */
-import { bearingDeg, distanceM, norm360, type Reading } from "./geo.ts";
+import { bearingDeg, distanceM, norm360, turn, type Reading } from "./geo.ts";
 
 export type HeadingSource = "sensor" | "walk" | null;
 
@@ -13,6 +13,8 @@ type PermissionCtor = { requestPermission?: () => Promise<"granted" | "denied"> 
 const SENSOR_FRESH_MS = 3_000;
 const WALK_FRESH_MS = 25_000;
 const WALK_STEP_M = 7;
+const STEADY_WINDOW_MS = 1500;
+const DOUBT_HOLD_MS = 3500;
 
 /**
  * Compass heading from the three orientation angles (alpha measured anticlockwise from north).
@@ -45,6 +47,10 @@ export class Heading {
   private walk: { deg: number; at: number } | null = null;
   private anchor: Reading | null = null;
   private listening = false;
+  /** The last couple of seconds of sensor headings, to tell a steady compass from a confused one. */
+  private recent: { deg: number; at: number }[] = [];
+  private doubtUntil = 0;
+  private disagreements = 0;
   /** "denied" when the guest said no to motion access on an iPhone. */
   permission: "unknown" | "granted" | "denied" = "unknown";
 
@@ -85,7 +91,28 @@ export class Heading {
       h = headingFromAngles(e.alpha, e.beta, e.gamma);
     }
     if (h === null || !Number.isFinite(h)) return;
-    this.sensor = { deg: norm360(h + screenAngle()), at: Date.now() };
+    const now = Date.now();
+    this.sensor = { deg: norm360(h + screenAngle()), at: now };
+    this.recent.push(this.sensor);
+    while (this.recent.length && now - this.recent[0].at > STEADY_WINDOW_MS) this.recent.shift();
+    if (this.recent.length >= 6) {
+      // How well the recent headings agree: 1 = all the same way, 0 = pointing everywhere.
+      let x = 0;
+      let y = 0;
+      for (const s of this.recent) {
+        x += Math.cos((s.deg * Math.PI) / 180);
+        y += Math.sin((s.deg * Math.PI) / 180);
+      }
+      if (Math.hypot(x, y) / this.recent.length < 0.55) this.doubtUntil = now + DOUBT_HOLD_MS;
+    }
+  }
+
+  /**
+   * True while the compass is swinging about, or disagrees with the way the guest is actually walking.
+   * The screen asks the guest to slow down until it settles.
+   */
+  unsure(now = Date.now()): boolean {
+    return now < this.doubtUntil;
   }
 
   /** Feed every position reading in, so the walking direction is ready if the sensor isn't. */
@@ -98,6 +125,10 @@ export class Heading {
     if (moved >= Math.max(WALK_STEP_M, r.accuracy * 0.6)) {
       this.walk = { deg: bearingDeg(this.anchor, r), at: r.at };
       this.anchor = r;
+      // Walking one way while the sensor says quite another, twice running: the sensor needs a moment.
+      const off = this.sensor && r.at - this.sensor.at < SENSOR_FRESH_MS && Math.abs(turn(this.sensor.deg, this.walk.deg)) > 100;
+      this.disagreements = off ? this.disagreements + 1 : 0;
+      if (this.disagreements >= 2) this.doubtUntil = Date.now() + DOUBT_HOLD_MS;
     }
   }
 

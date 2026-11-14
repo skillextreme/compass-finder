@@ -100,8 +100,8 @@ test("names are cleaned and bounded; bad input is refused", async () => {
 test("a finish is checked by the server: too far or too vague is refused", async () => {
   const kv = await published();
   await started(kv, 1, "Asha", T0);
-  expect((await guest(kv, "/finish", { ...who(1), ...near(50), accuracy: 5, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "too_far" });
-  expect((await guest(kv, "/finish", { ...who(1), ...near(12), accuracy: 5, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "too_far" });
+  expect((await guest(kv, "/finish", { ...who(1), ...near(90), accuracy: 5, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "too_far" });
+  expect((await guest(kv, "/finish", { ...who(1), ...near(53), accuracy: 5, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "too_far" });
   expect((await guest(kv, "/finish", { ...who(1), ...near(4), accuracy: 40, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "weak_reading" });
   expect((await guest(kv, "/finish", { ...who(1), accuracy: 5, ageMs: 0 }, T0 + 60_000)).body).toEqual({ error: "invalid_position" });
   expect(count(kv, "/finishes/")).toBe(0);

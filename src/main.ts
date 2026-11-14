@@ -8,7 +8,7 @@ import { ApiError, getBoard, getState, postFinish, postPing, postRequest, postSt
 import { cloud, compassPlane, finishIcon, flowerIcon, jacobPortrait, pinColor as pinColorFor, planeIcon, tree } from "./art.ts";
 import { CompassView, type Pin } from "./compassView.ts";
 import { COUNTDOWN_S, FINISH, GAME, LIMITS, POLL, type AttemptStatus, type Boards, type Searcher, type Target } from "./config.ts";
-import { FinishGate, bearingDeg, bloomSteps, distanceM, formatDistance, formatDuration, ordinal, warmth, type GateVerdict, type Reading } from "./geo.ts";
+import { FinishGate, bearingDeg, bloom, bloomSteps, distanceM, formatDistance, formatDuration, ordinal, warmth, type GateVerdict, type Reading } from "./geo.ts";
 import { Heading } from "./heading.ts";
 import { problemAdvice, watchLocation, type LocationProblem, type Watcher } from "./location.ts";
 import { Meadow, seedShower } from "./meadow.ts";
@@ -256,7 +256,7 @@ function howItWorks(): HTMLElement {
     "ul",
     { class: "how" },
     el("li", {}, el("span", { class: "how__icon", html: planeIcon() }), el("span", {}, el("b", {}, "The paper plane points at Jacob. "), "It points straight there, through trees and fences. Use the park's paths and find your own way round.")),
-    el("li", {}, el("span", { class: "how__icon", html: flowerIcon() }), el("span", {}, el("b", {}, "Dandelions open as you get closer. "), "They show how far you are right now. If a path takes you the long way, they may close a little first.")),
+    el("li", {}, el("span", { class: "how__icon", html: flowerIcon() }), el("span", {}, el("b", {}, "The meadow blooms as you get closer. "), "The dandelions around the compass show how far you are right now. If a path takes you the long way, some may close again first.")),
     el("li", {}, el("span", { class: "how__icon", html: finishIcon() }), el("span", {}, el("b", {}, `Get within ${FINISH.radiusM} metres and you've found him. `), "Your time stops by itself. If it doesn't, ask Jacob to confirm.")),
   );
 }
@@ -546,7 +546,7 @@ function showLooking(): void {
   const meadow = new Meadow();
   const timer = el("span", { class: "pill pill--timer", id: "timer", "aria-label": "Your time" }, formatDuration(Date.now() - a.startedLocal));
   const info = el("button", { class: "pill pill--icon", type: "button", id: "info", "aria-label": "How it works" }, "?");
-  const cue = el("p", { class: "cue", id: "cue" }, `Dandelions open as you get closer to ${GAME.host}`);
+  const cue = el("p", { class: "cue", id: "cue" }, `The meadow blooms as you get closer to ${GAME.host}`);
   const distance = el("div", { class: "readout__distance", id: "distance" }, "…");
   const hint = el("p", { class: "readout__hint", id: "hint", "aria-live": "polite" }, "Finding you…");
   const friendsCount = el("span", { id: "friends-count" }, "0");
@@ -556,18 +556,40 @@ function showLooking(): void {
 
   show(
     "looking",
-    sky(),
+    meadow.root,
     el(
       "section",
       { class: "look" },
       el("header", { class: "look__top" }, info, cue, timer),
       el("div", { class: "look__compass" }, compass.root),
       el("div", { class: "readout" }, distance, hint),
-      el("div", { class: "look__ground" }, meadow.root, el("div", { class: "look__chips" }, friends, ask)),
+      el("div", { class: "look__chips" }, friends, ask),
     ),
     debug,
   );
   document.documentElement.classList.add("is-looking");
+  // Flowers grow everywhere except behind the compass, the words and the buttons.
+  meadow.layout(() => {
+    const textBox = (n: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      const r = range.getBoundingClientRect();
+      return new DOMRect(r.left - 8, r.top - 4, r.width + 16, r.height + 8);
+    };
+    const face = compass.root.getBoundingClientRect();
+    const grow = (r: DOMRect, by: number) => new DOMRect(r.left, r.top - by, r.width, r.height + 2 * by);
+    return {
+      rects: [
+        ...[info, timer].map((n) => n.getBoundingClientRect()),
+        textBox(cue),
+        // The distance and the hint change as the guest walks, so their whole band stays clear,
+        // and so does the button row (the "searching" button appears later).
+        grow(distance.parentElement!.getBoundingClientRect(), 8),
+        ask.parentElement!.getBoundingClientRect(),
+      ],
+      circles: [{ x: face.left + face.width / 2, y: face.top + face.height / 2, r: face.width * 0.4 }],
+    };
+  });
   compass.start();
   void keepAwake();
   if (!watcher) startWatching();
@@ -575,6 +597,9 @@ function showLooking(): void {
 
   const log: unknown[] = [];
   let nearSince = 0;
+  let lastDoubtToast = 0;
+  /** Close enough that Jacob should be in sight: the portrait bounces and the "with Jacob" button wakes up. */
+  const NEAR_M = FINISH.radiusM + 40;
   let lastSteps = -1;
 
   const update = () => {
@@ -589,14 +614,14 @@ function showLooking(): void {
       distance.textContent = formatDistance(d);
       distance.dataset.metres = String(Math.round(d));
       const steps = bloomSteps(d);
-      if (meadow.set(steps) && steps > lastSteps) vibrate(25);
+      if (meadow.set(steps, bloom(d)) && steps > lastSteps) vibrate(25);
       lastSteps = steps;
-      nearSince = d <= 30 ? nearSince || now : 0;
+      nearSince = d <= NEAR_M ? nearSince || now : 0;
     }
     ask.classList.toggle("is-nudge", status === "looking" && nearSince > 0 && now - nearSince > 15_000);
     ask.classList.toggle("is-pending", status === "pending");
     ask.textContent = status === "pending" ? "Waiting for Jacob…" : nearSince ? "I'm with Jacob!" : "With Jacob?";
-    compass.root.classList.toggle("is-near", d !== null && d <= 30);
+    compass.root.classList.toggle("is-near", d !== null && d <= NEAR_M);
 
     let text: string;
     let tone = "";
@@ -612,6 +637,15 @@ function showLooking(): void {
     } else if (h.deg === null) {
       text = heading.permission === "denied" ? "Walk a few steps and the plane will turn with you." : "Waking the compass: wave your phone in a figure of 8, or walk a few steps.";
       tone = "warn";
+    } else if (heading.unsure(now) && d !== null && d > FINISH.radiusM) {
+      // The compass is swinging about or disagrees with the way they're walking.
+      text = "Slow down a moment. I'm double-checking your direction.";
+      tone = "check";
+      if (now - lastDoubtToast > 25_000) {
+        lastDoubtToast = now;
+        toast("Slow down. Let me double-check you're heading the right way.", 3800);
+        vibrate(20);
+      }
     } else if (d !== null) {
       text = h.source === "walk" && d > 25 ? `${warmth(d)} · the plane turns as you walk` : warmth(d);
     } else {
@@ -663,7 +697,7 @@ function showLooking(): void {
     timer.textContent = formatDuration(Date.now() - a.startedLocal);
     update();
     // Near the finish, make sure fresh readings keep coming even if the phone thinks nothing changed.
-    if (reading && target && distanceM(reading, target) < 40 && Date.now() - reading.at > 2500) watcher?.poke();
+    if (reading && target && distanceM(reading, target) < NEAR_M && Date.now() - reading.at > 2500) watcher?.poke();
     else if (reading && Date.now() - reading.at > 12_000) watcher?.poke();
   }, 1000);
 
@@ -739,6 +773,7 @@ function showLooking(): void {
     window.clearInterval(slow);
     window.clearTimeout(pingTimer);
     compass.stop();
+    meadow.destroy();
     onReading = null;
     onProblem = null;
     allowSleep();
@@ -807,7 +842,6 @@ function showFound(): void {
   watcher?.stop();
   watcher = null;
   const meadow = new Meadow();
-  meadow.set(10);
   const time = el("div", { class: "found__time", id: "found-time" });
   const saving = el("p", { class: "found__saving", id: "found-saving", "aria-live": "polite" });
   const badges = el("div", { class: "found__badges", id: "found-badges" });
@@ -818,17 +852,18 @@ function showFound(): void {
 
   show(
     "found",
-    sky(),
+    meadow.root,
     seedShower(),
     el(
       "section",
       { class: "found" },
-      el("div", { class: "found__top" }, portrait, el("h1", {}, `You found ${GAME.host}!`), time, saving, badges, quip),
+      el("div", { class: "found__top" }, portrait, el("p", { class: "found__won" }, "You won!"), el("h1", {}, `You found ${GAME.host}!`), time, saving, badges, quip, el("p", { class: "found__near", id: "found-near" }, `He's within about ${FINISH.radiusM} metres of you. Look around and go say hi!`)),
       boards.root,
       still,
-      el("div", { class: "found__ground" }, meadow.root),
     ),
   );
+  meadow.layout();
+  meadow.set(10, 1);
   later(() => meadow.puff(), 900);
   vibrate([80, 60, 80, 60, 220]);
 
@@ -894,6 +929,7 @@ function showFound(): void {
   void poll();
   void sync();
   leave = () => {
+    meadow.destroy();
     refreshFound = null;
     window.clearTimeout(pollTimer);
   };

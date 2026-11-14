@@ -58,7 +58,7 @@ test("flowers are closed at the park edge, open at the finish and never close as
   // Every step from all buds to all open is reachable on the walk in.
   expect([...seen].sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   // The last 100 metres still change the picture several times.
-  expect(bloomSteps(15) - bloomSteps(100)).toBeGreaterThanOrEqual(4);
+  expect(bloomSteps(60) - bloomSteps(200)).toBeGreaterThanOrEqual(4);
 });
 
 test("text formatting", () => {
@@ -89,12 +89,12 @@ test("one reading inside is never enough", () => {
 
 test("weak, stale and outside readings don't finish and start the count again", () => {
   const g = new FinishGate();
-  expect(g.offer(at(8, 1000, 35), SPOT, 1000)).toBe("weak");
+  expect(g.offer(at(8, 1000, 50), SPOT, 1000)).toBe("weak");
   expect(g.offer(at(8, 1000), SPOT, 16_000)).toBe("stale");
-  expect(g.offer(at(14, 20_000), SPOT, 20_000)).toBe("outside");
+  expect(g.offer(at(58, 20_000), SPOT, 20_000)).toBe("outside");
   // Inside, then outside, then inside: the outside reading wipes the first one.
   expect(g.offer(at(9, 30_000), SPOT, 30_000)).toBe("first");
-  expect(g.offer(at(14, 32_500), SPOT, 32_500)).toBe("outside");
+  expect(g.offer(at(58, 32_500), SPOT, 32_500)).toBe("outside");
   expect(g.offer(at(9, 35_000), SPOT, 35_000)).toBe("first");
   expect(g.offer(at(9, 37_500), SPOT, 37_500)).toBe("finished");
   // A first reading that is too old to pair with is replaced, not confirmed.
@@ -146,9 +146,9 @@ test("simulated walks: no early finish well outside the circle, quick finish nex
     for (let i = 0; i < runs; i++) if (standFor(distance, sigma, 60, rand) !== null) n++;
     return n / runs;
   };
-  const far = rate(30, 5);
-  const edge = rate(20, 4);
-  const near = rate(14, 4);
+  const far = rate(75, 5);
+  const edge = rate(62, 4);
+  const near = rate(54, 4);
   const times: number[] = [];
   let never = 0;
   for (let i = 0; i < runs; i++) {
@@ -160,7 +160,7 @@ test("simulated walks: no early finish well outside the circle, quick finish nex
   const median = times[Math.floor(times.length / 2)];
   const p90 = times[Math.floor(times.length * 0.9)];
   console.log(
-    `finish gate: early finish in 60 s at 30 m ${(far * 100).toFixed(1)}%, at 20 m ${(edge * 100).toFixed(1)}%, at 14 m ${(near * 100).toFixed(1)}% | standing 3 m from Jacob: median ${median} s, 90% within ${p90} s, never in 2 min ${((never / runs) * 100).toFixed(1)}%`,
+    `finish gate: early finish in 60 s at 75 m ${(far * 100).toFixed(1)}%, at 62 m ${(edge * 100).toFixed(1)}%, at 54 m ${(near * 100).toFixed(1)}% | standing 3 m from Jacob: median ${median} s, 90% within ${p90} s, never in 2 min ${((never / runs) * 100).toFixed(1)}%`,
   );
   expect(far).toBeLessThan(0.005);
   expect(edge).toBeLessThan(0.05);

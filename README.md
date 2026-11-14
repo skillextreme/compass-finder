@@ -1,6 +1,6 @@
 # Compass: find Jacob in the park
 
-Part two of the birthday invite. Guests open one link in Cubbon Park. A paper plane points at the spot Jacob marked, dandelions open as they get closer, tiny arrows show friends who are also searching, and the hunt finishes by itself within 10 metres. Jacob has a private board to mark his spot, see who's looking, and confirm a finish in person.
+Part two of the birthday invite. Guests open one link in Cubbon Park. A paper plane points at the spot Jacob marked, a meadow of dandelions blooms across the screen as they get closer, tiny arrows show friends who are also searching, and they win as soon as they come within 50 metres. Jacob has a private board to mark his spot, see who's looking, and confirm a finish in person.
 
 It is built for phones only. On a computer the page asks to be opened on a phone.
 
@@ -30,12 +30,13 @@ In the **⋯** menu: **Move my spot** (runs Find me again; everyone's compass sw
 
 All of these live in [`src/config.ts`](src/config.ts). Change a number and push.
 
-- **Automatic finish:** a reading within 10 m of the spot, accurate to 20 m or better, less than 10 seconds old, confirmed by a second such reading at least 2 seconds later. One stray reading under trees can't end a hunt.
+- **Automatic finish:** a reading within 50 m of the spot, accurate to 35 m or better, less than 10 seconds old, confirmed by a second such reading at least 2 seconds later. One stray reading under trees can't end a hunt. The guest sees "You won!" and is told Jacob is within about 50 metres.
 - **Host-approved finish:** counts on both leaderboards. Its time is the moment the guest asked, so nobody is penalised while Jacob is busy. If Jacob approves without a request, it is the moment he tapped.
 - **One result per attempt.** The compass, a request, an approval, a double tap and a retry can all race; whichever is recorded first is the result and the rest get that same answer back.
 - **First to arrive** ranks by finish time. **Fastest** ranks by time from the end of the guest's own countdown, and shows how far away they started. Guests can start anywhere. Ties share a rank.
 - **One attempt per phone per round.** Reloading or reopening the link resumes it; the timer keeps running.
-- **Flowers:** all closed at 600 m or more (about the park edge), all open at 10 m, on a scale that keeps changing through the last 100 m.
+- **Flowers:** the whole screen is a meadow seen from above. Every dandelion is a bud at 600 m or more (about the park edge) and they open one by one until all are in bloom at 50 m.
+- **Unsure compass:** if the phone's compass swings about, or points one way while the guest walks another, the screen says "Slow down a moment. I'm double-checking your direction." until it settles.
 - **Friends:** while someone is looking, their phone shares its position (rounded to about 10 m) every few seconds. Other searchers see it as a small arrow. It stops when they find Jacob, and they drop off after a minute of silence.
 - **No signal:** the compass, distance and flowers run on the phone. A start or finish made with no signal is sent when the signal returns and keeps its real time.
 
@@ -49,7 +50,7 @@ Do this before guests arrive, then use **Start a fresh round** to clear it.
 
 - Mark your spot under the trees where you'll actually wait. Note the accuracy it reports. If it says ±20 m or worse, step into the open, mark, and wait near that point.
 - Walk in from the metro entrance and from one other gate, on an iPhone (Safari) and an Android phone (Chrome).
-- Stand about 15 m, 12 m and 8 m from the spot for 30 seconds each. Does it finish early outside the circle? How long does it take inside?
+- Stand about 70 m, 55 m and 40 m from the spot for 30 seconds each. Does it finish early outside the circle? How long does it take inside?
 - Turn on the spot: does the plane keep pointing the same real-world way?
 - Lock and unlock the phone mid-walk. Switch on airplane mode for 30 seconds and switch it off.
 - Refuse the location prompt once and follow the on-screen steps to recover.

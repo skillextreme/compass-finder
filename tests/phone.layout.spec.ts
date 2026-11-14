@@ -46,14 +46,43 @@ async function expectCompassScreenFits(page: Page, label: string): Promise<void>
   const compass = await box(page, ".compass");
   const distance = await box(page, "#distance");
   const hint = await box(page, "#hint");
-  const meadow = await box(page, ".meadow");
   const chips = await box(page, ".look__chips");
   // Top bar, compass, distance, hint, flowers, chips: stacked in that order with no overlap.
   expect(compass.top, `${label}: compass under the top bar`).toBeGreaterThanOrEqual(top.bottom - 1);
   expect(distance.top, `${label}: distance under the compass`).toBeGreaterThanOrEqual(compass.bottom - 1);
   expect(hint.top).toBeGreaterThanOrEqual(distance.bottom - 1);
-  expect(meadow.top, `${label}: flowers under the hint`).toBeGreaterThanOrEqual(hint.bottom - 1);
-  expect(chips.top).toBeGreaterThanOrEqual(meadow.bottom - 3);
+  expect(chips.top, `${label}: buttons under the hint`).toBeGreaterThanOrEqual(hint.bottom - 1);
+  // The meadow fills the whole screen behind everything, and no flower sits behind the words or the buttons.
+  const meadow = await box(page, ".meadow");
+  expect(meadow.width).toBeGreaterThanOrEqual(vw - 1);
+  expect(meadow.height).toBeGreaterThanOrEqual(vh - 1);
+  const flowers = await page.evaluate(() => {
+    const hit = (a: DOMRect, b: DOMRect) => a.left < b.right - 2 && a.right > b.left + 2 && a.top < b.bottom - 2 && a.bottom > b.top + 2;
+    const words = (n: Element) => {
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      return range.getBoundingClientRect();
+    };
+    // The square that fits inside the round face (measured from the compass box, which doesn't rotate).
+    const c = document.querySelector(".compass")!.getBoundingClientRect();
+    const half = c.width * 0.39 * 0.7;
+    const keep = [
+      ...[...document.querySelectorAll("#info, #timer, #friends:not([hidden]), #ask")].map((n) => n.getBoundingClientRect()),
+      ...[...document.querySelectorAll("#cue, #distance, #hint")].map(words),
+      new DOMRect(c.left + c.width / 2 - half, c.top + c.height / 2 - half, 2 * half, 2 * half),
+    ];
+    const all = [...document.querySelectorAll<HTMLElement>(".meadow__flower")].map((n) => {
+      // Flowers are round and turned at random angles, so measure from the centre: the middle two-thirds.
+      const r = n.getBoundingClientRect();
+      const half = n.offsetWidth / 3;
+      return new DOMRect(r.left + r.width / 2 - half, r.top + r.height / 2 - half, 2 * half, 2 * half);
+    });
+    const names = ["info", "timer", "friends", "ask", "cue", "distance", "hint", "compass"];
+    const covered = all.flatMap((f) => keep.map((k, i) => (hit(f, k) ? `${names[i] ?? i} ${Math.round(k.left)},${Math.round(k.top)} ${Math.round(k.width)}x${Math.round(k.height)}` : "")).filter(Boolean));
+    return { count: all.length, covered };
+  });
+  expect(flowers.count, `${label}: flowers across the page`).toBeGreaterThanOrEqual(12);
+  expect(flowers.covered, `${label}: flowers behind text or buttons`).toEqual([]);
   expect(chips.bottom, `${label}: chips on screen`).toBeLessThanOrEqual(vh + 0.5);
   // The compass is the main thing on the screen and stays round.
   expect(compass.width, `${label}: compass size`).toBeGreaterThanOrEqual(Math.min(vw * 0.55, 200));
@@ -106,7 +135,7 @@ test("every guest screen fits a phone: start, compass, sheets and results", asyn
   // Three friends searching too.
   for (const [name, bearing, metres] of [
     ["Rohan", 20, 180],
-    ["Meera", 140, 60],
+    ["Meera", 140, 90],
     ["Zoya", 300, 320],
   ] as const) {
     const friend = await game.guest({ bearing, metres });
@@ -124,11 +153,11 @@ test("every guest screen fits a phone: start, compass, sheets and results", asyn
   await expect(guest.page.locator(".board")).toHaveCount(0);
   await expect(guest.page.getByText(/leaderboard|fastest|first to arrive/i)).toHaveCount(0);
   const visible = await guest.page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>(".look > *, .look__top > *, .look__ground > *, .look__chips > *, .readout > *")]
+    [...document.querySelectorAll<HTMLElement>(".look > *, .look__top > *, .look__chips > *, .readout > *")]
       .filter((n) => n.offsetParent !== null && n.getBoundingClientRect().height > 0)
       .map((n) => n.id || n.className.split(" ")[0]),
   );
-  expect(visible.sort()).toEqual(["ask", "cue", "distance", "friends", "hint", "info", "look__chips", "look__compass", "look__ground", "look__top", "meadow", "readout", "timer"].sort());
+  expect(visible.sort()).toEqual(["ask", "cue", "distance", "friends", "hint", "info", "look__chips", "look__compass", "look__top", "readout", "timer"].sort());
 
   await guest.page.click("#friends");
   await expect(guest.page.locator(".people li")).toHaveCount(3);
@@ -142,10 +171,11 @@ test("every guest screen fits a phone: start, compass, sheets and results", asyn
   await shot(guest.page, info, "g7-info-sheet");
   await guest.page.click(".sheet__close");
 
-  await guest.moveTo({ bearing: 250, metres: 90 });
+  await guest.moveTo({ bearing: 250, metres: 180 });
   await guest.face(68);
-  await expectCompassScreenFits(guest.page, "looking, 90 m");
-  await shot(guest.page, info, "g8-compass-90m");
+  await expectCompassScreenFits(guest.page, "looking, 180 m");
+  await expect(guest.page.locator(".meadow")).toHaveAttribute("data-steps", "4");
+  await shot(guest.page, info, "g8-compass-180m");
 
   // The same screen with the browser's bars taking space (a shorter window).
   await guest.page.setViewportSize({ width: viewport!.width, height: Math.min(viewport!.height, 560) - 40 });
@@ -155,10 +185,10 @@ test("every guest screen fits a phone: start, compass, sheets and results", asyn
   await shot(guest.page, info, "g9-compass-short-window");
   await guest.page.setViewportSize(viewport!);
 
-  await guest.moveTo({ bearing: 250, metres: 16 });
+  await guest.moveTo({ bearing: 250, metres: 58 });
   await guest.face(70);
-  await expectCompassScreenFits(guest.page, "looking, 16 m");
-  await shot(guest.page, info, "g10-compass-16m");
+  await expectCompassScreenFits(guest.page, "looking, 58 m");
+  await shot(guest.page, info, "g10-compass-58m");
   await guest.page.click("#ask");
   await guest.page.waitForTimeout(300);
   await expectPhoneFriendly(guest.page, "ask sheet");

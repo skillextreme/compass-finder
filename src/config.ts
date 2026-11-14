@@ -12,9 +12,9 @@ export const GAME = {
 /** How an attempt finishes on its own. Tune these after walking the park. */
 export const FINISH = {
   /** Finish circle around the marked spot, in metres. */
-  radiusM: 10,
+  radiusM: 50,
   /** Readings less sure than this (metres) can't finish an attempt. */
-  maxAccuracyM: 20,
+  maxAccuracyM: 35,
   /** A reading older than this is ignored. */
   maxAgeMs: 10_000,
   /** A second reading inside the circle, at least this long after the first, confirms the finish. */

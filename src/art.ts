@@ -356,3 +356,27 @@ export function flowerIcon(): string {
 export function finishIcon(): string {
   return `<svg viewBox="-22 -22 44 44" aria-hidden="true" focusable="false"><circle r="18" fill="${C.butter}" stroke="${C.line}" stroke-width="2.5" stroke-dasharray="3 5" stroke-linecap="round"/><circle r="7" fill="${C.coral}" stroke="${C.line}" stroke-width="2.5"/></svg>`;
 }
+
+/**
+ * A dandelion seen from above: a rosette of jagged leaves with the flower in the middle.
+ * The four heads are stacked and the page shows one at a time: bud, opening, open, seed puff.
+ */
+export function dandelionTop(): string {
+  let leaves = "";
+  for (let i = 0; i < 6; i++) {
+    leaves += `<path transform="rotate(${i * 60 + (i % 2 ? 9 : -6)})" d="M0,0 C3,-5 5,-7 3.5,-11 l3,0.5 l-2.5,-4 l3,0.5 C6,-19 2,-22 0,-${i % 2 ? 23 : 20} C-2,-22 -6,-19 -7,-14 l3,-0.5 l-2.5,4 l3,-0.5 C-5,-7 -3,-5 0,0 Z" fill="${i % 2 ? C.leaf : C.leaf2}" stroke="${C.line}" stroke-width="1.2" stroke-linejoin="round"/>`;
+  }
+  const bud =
+    `<circle r="6" fill="${C.leaf}" stroke="${C.line}" stroke-width="1.5"/>` +
+    `<path d="M0,-6 V6 M-5.2,-3 L5.2,3 M-5.2,3 L5.2,-3" stroke="${C.leafDark}" stroke-width="1.1" stroke-linecap="round"/>` +
+    `<circle r="2" fill="${C.butterDeep}" stroke="${C.line}" stroke-width="0.9"/>`;
+  const opening = petals(10, 5.5, 2.5, 5, C.butterDeep, 9) + `<circle r="4.2" fill="${C.leaf2}" stroke="${C.line}" stroke-width="1.2"/><circle r="1.8" fill="${C.butter}"/>`;
+  const open = petals(14, 11, 3.4, 8.5, C.butterDeep) + petals(10, 6.5, 3, 6.5, C.butter, 18) + `<circle r="4.6" fill="#F2B632" stroke="${C.line}" stroke-width="1.3"/>`;
+  let seeds = "";
+  for (let i = 0; i < 14; i++) {
+    seeds += `<g transform="rotate(${(360 / 14) * i + 8})"><path d="M0,-3 V-15" stroke="${C.line}" stroke-width="1" opacity=".45"/><circle cy="-16.5" r="2.4" fill="#FFFDF5" stroke="${C.line}" stroke-width="1"/></g>`;
+  }
+  const puff = `<circle r="19" fill="#FFFDF5" opacity=".88"/>` + seeds + `<circle r="3.4" fill="${C.cream2}" stroke="${C.line}" stroke-width="1.2"/>`;
+  const heads = [bud, opening, open, puff].map((m, i) => `<g class="dl-head dl-head--${i}">${m}</g>`).join("");
+  return `<svg viewBox="-26 -26 52 52" aria-hidden="true" focusable="false"><g class="dl-leaves">${leaves}</g>${heads}</svg>`;
+}

@@ -82,9 +82,9 @@ export class Guest {
 
   /** Moves into the finish circle and stays there until the compass finishes by itself. */
   async arrive(bearing = 200): Promise<void> {
-    await this.moveTo({ bearing, metres: 6 });
+    await this.moveTo({ bearing, metres: 30 });
     await this.page.waitForTimeout(2300);
-    await this.moveTo({ bearing, metres: 5 });
+    await this.moveTo({ bearing, metres: 28 });
     await this.expectScreen("found");
   }
 }
